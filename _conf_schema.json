@@ -56,14 +56,14 @@
   "inject_after_generation": {
     "type": "bool",
     "description": "生成后将小剧场文字注入当前 LLM",
-    "hint": "开启后提取本次小剧场提示词和正文，交给触发指令的当前会话人格公开回应一次。",
+    "hint": "这个暂时没测试过，不知道有没有bug。开启后提取本次小剧场提示词和正文，交给触发指令的当前会话人格公开回应一次。",
     "default": false,
     "obvious_hint": true
   },
   "inject_conversation_context": {
     "type": "bool",
     "description": "是否开启小剧场注入当前会话上下文",
-    "hint": "开启后将触发会话最近 20 条普通 user/assistant 文字消息发送给小剧场 API；会排除小剧场控制指令，且不会写入成品索引或备份。",
+    "hint": "依旧没测。开启后将触发会话最近 20 条普通 user/assistant 文字消息发送给小剧场 API；会排除小剧场控制指令，且不会写入成品索引或备份。",
     "default": false,
     "obvious_hint": true
   },
@@ -82,7 +82,7 @@
   "style_prompt": {
     "type": "text",
     "description": "小剧场文风提示词",
-    "hint": "留空时不注入额外文风。",
+    "hint": "没测。留空时不注入额外文风。",
     "default": ""
   },
   "continue_on_empty": {
@@ -95,13 +95,13 @@
   "inject_memory_and_diary": {
     "type": "bool",
     "description": "是否注入核心记忆与近 N 天日记（待定）",
-    "hint": "首版仅保留配置项，不执行读取或注入；待与 astrbot_plugin_romantic_memory 和核心记忆插件确定联动协议。",
+    "hint": "甚至没写。首版仅保留配置项，不执行读取或注入；待与 astrbot_plugin_romantic_memory 和核心记忆插件确定联动协议。",
     "default": false
   },
   "retention_limit": {
     "type": "int",
     "description": "小剧场保留数量",
-    "hint": "超过数量后自动删除最旧且未收藏的成品；收藏成品不受限制。",
+    "hint": "如测。超过数量后自动删除最旧且未收藏的成品；收藏成品不受限制。",
     "default": 6,
     "minimum": 1,
     "maximum": 1000
