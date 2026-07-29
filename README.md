@@ -152,10 +152,10 @@ https://example.com/v1/chat/completions
 | `theater_system_prompt` | 小剧场系统提示词 | 内置 HTML 约束提示词 | 控制输出格式和安全限制 |
 | `style_prompt` | 小剧场文风提示词 | 空 | 留空时不追加文风提示 |
 | `continue_on_empty` | 空回/截断补救 | `true` | 最多补救三次，仍失败则不保存残缺文件 |
-| `inject_after_generation` | 生成后注入当前会话 | `false` | 只对触发指令的当前会话生效 |
-| `inject_conversation_context` | 生成时注入聊天上下文 | `false` | 最多最近 20 条普通 user/assistant 文字消息 |
-| `inject_memory_and_diary` | 核心记忆与近 N 天日记 | `false` | 首版仅保留配置项，暂不读取或注入 |
-| `retention_limit` | 未收藏成品保留数量 | `6` | 收藏成品不受自动清理影响 |
+| `inject_after_generation` | 生成后注入当前会话（没测） | `false` | 只对触发指令的当前会话生效 |
+| `inject_conversation_context` | 生成时注入聊天上下文（没测） | `false` | 最多最近 20 条普通 user/assistant 文字消息 |
+| `inject_memory_and_diary` | 核心记忆与近 N 天日记（甚至没写） | `false` | 首版仅保留配置项，暂不读取或注入 |
+| `retention_limit` | 未收藏成品保留数量（没测） | `6` | 收藏成品不受自动清理影响 |
 | `debug_enabled` | 插件调试日志 | `false` | 开启后增加插件 DEBUG 诊断，不修改全局日志级别 |
 | `allowed_qq_ids` | QQ 聊天白名单 | 空 | 为空时聊天指令直接报错 |
 
@@ -191,7 +191,7 @@ OpenAI 兼容 API
 
 ## 七、Persona、变量和命名规则
 
-### 变量替换
+### 变量替换（没测）
 
 模板和人设中支持：
 
@@ -219,7 +219,7 @@ Persona2同人小剧场1
 
 重试会沿用原请求快照中的 Persona ID，并生成下一个编号。
 
-### 续写章节
+### 续写章节（如测）
 
 同一个基础成品使用线性章节编号：
 
@@ -237,11 +237,11 @@ Persona1同人小剧场1-chapter3
 
 - 搜索标题或提示词；
 - 新增、编辑模板；
-- 多选并批量删除；
+- 多选并批量删除；（没测）
 - 同名模板自动编号；
 - 标题和提示词由服务端再次校验，不能保存空值。
 
-### 02 成品与续写
+### 02 成品与续写（没测过续写）
 
 - 查看生成和续写成品；
 - 查看 Persona、章节和生成时间；
@@ -253,7 +253,7 @@ Persona1同人小剧场1-chapter3
 
 面板续写不会读取当前聊天上下文，也不会向 QQ 会话注入。
 
-### 03 Persona 人设配置
+### 03 Persona 人设配置（没测过多个人格）
 
 - 通过“＋”增加多个 Persona；
 - 页面刷新后恢复上次选择；
@@ -261,7 +261,7 @@ Persona1同人小剧场1-chapter3
 - 删除指定 Persona 配置；
 - 列出 AstrBot 已知 Persona 供参考。
 
-### 04 小剧场备份
+### 04 小剧场备份（这也没测嘻嘻）
 
 备份 ZIP 包含：
 
@@ -295,7 +295,7 @@ Persona1同人小剧场1-chapter3
 - 蓝白：默认冷静蓝白；
 - 灰白：低饱和中性灰白。
 
-在“自定义插件面板 CSS”文本框中输入 CSS 后会立即应用。例如：
+（没测试自定义）在“自定义插件面板 CSS”文本框中输入 CSS 后会立即应用。例如：
 
 ```css
 .panel-card {
@@ -320,7 +320,7 @@ Persona1同人小剧场1-chapter3
 
 收藏成品不会被 `retention_limit` 自动清理。
 
-## 九、聊天指令
+## 九、聊天指令（嗯只测了一半。gpt5.6luna评价：懒得喷了。）
 
 所有聊天指令都要求发送者在 `allowed_qq_ids` 中。
 
@@ -386,7 +386,7 @@ http://127.0.0.1:7315/
 
 Web 页面只展示插件保存的 HTML，不允许通过 URL 访问 HTML 保存目录之外的文件。生成内容还会附加 CSP 和 iframe sandbox 限制，禁止脚本、图片和外部请求。
 
-## 十一、“未找到该路由”排查
+## 十一、“未找到该路由”排查（没找到就重启）
 
 如果面板提示：
 
