@@ -1,0 +1,119 @@
+{
+  "api_url": {
+    "type": "string",
+    "description": "小剧场 API URL",
+    "hint": "填写 OpenAI 兼容接口的 Base URL 或完整 chat/completions 地址；插件会自动补全 /v1/chat/completions。",
+    "default": "",
+    "obvious_hint": true
+  },
+  "api_key": {
+    "type": "string",
+    "description": "小剧场 API 密钥",
+    "hint": "用于调用小剧场 OpenAI 兼容接口。",
+    "default": "",
+    "obvious_hint": true
+  },
+  "model": {
+    "type": "string",
+    "description": "小剧场 API 模型",
+    "hint": "填写接口支持的模型 ID。",
+    "default": "",
+    "obvious_hint": true
+  },
+  "html_save_path": {
+    "type": "string",
+    "description": "小剧场 HTML 保存路径",
+    "hint": "留空时保存到 data/plugin_data/astrbot_plugin_html_theater/html；相对路径以插件数据目录为基准。",
+    "default": ""
+  },
+  "web_enabled": {
+    "type": "bool",
+    "description": "是否开启小剧场 Web 界面",
+    "hint": "开启后通过独立 Web 页面显示当前选择的小剧场 HTML。",
+    "default": false,
+    "obvious_hint": true
+  },
+  "web_host": {
+    "type": "string",
+    "description": "Web 监听地址",
+    "hint": "本机访问使用 127.0.0.1；VPS 或局域网监听可填写 0.0.0.0。",
+    "default": "127.0.0.1"
+  },
+  "web_port": {
+    "type": "int",
+    "description": "Web 监听端口",
+    "hint": "小剧场独立 Web 页面的监听端口。",
+    "default": 7315,
+    "minimum": 1,
+    "maximum": 65535
+  },
+  "web_password": {
+    "type": "string",
+    "description": "Web 访问密码",
+    "hint": "留空表示无需密码；公网部署时建议设置强密码并使用 HTTPS 反向代理。",
+    "default": ""
+  },
+  "inject_after_generation": {
+    "type": "bool",
+    "description": "生成后将小剧场文字注入当前 LLM",
+    "hint": "开启后提取本次小剧场提示词和正文，交给触发指令的当前会话人格公开回应一次。",
+    "default": false,
+    "obvious_hint": true
+  },
+  "inject_conversation_context": {
+    "type": "bool",
+    "description": "是否开启小剧场注入当前会话上下文",
+    "hint": "开启后将触发会话最近 20 条普通 user/assistant 文字消息发送给小剧场 API；会排除小剧场控制指令，且不会写入成品索引或备份。",
+    "default": false,
+    "obvious_hint": true
+  },
+  "debug_enabled": {
+    "type": "bool",
+    "description": "是否开启小剧场调试日志",
+    "hint": "关闭时保留 INFO/WARN/ERROR；开启后增加 DBUG 诊断。不会记录密钥、密码、完整提示词或会话正文。",
+    "default": false
+  },
+  "theater_system_prompt": {
+    "type": "text",
+    "description": "小剧场系统提示词",
+    "hint": "用于约束小剧场 API 的输出格式与视觉风格。",
+    "default": "你是一个html小剧场助手，请发挥你的脑洞吧。\n- 请使用html，严禁使用markdown和JS语言。\n- 禁止使用img标签，如果内容需要图片描述，以描述“图片”的文字描述或“图片”标题的占位块代替。\n- 根据小剧场的内容选择相对于的css美化风格，配色必须要协调。\n- 在html顶部增加上本次调用的小剧场类型。"
+  },
+  "style_prompt": {
+    "type": "text",
+    "description": "小剧场文风提示词",
+    "hint": "留空时不注入额外文风。",
+    "default": ""
+  },
+  "continue_on_empty": {
+    "type": "bool",
+    "description": "是否开启小剧场空回/截断续写",
+    "hint": "默认开启。空白响应或 HTML 未闭合时最多补救三次，仍失败则停止并报错。",
+    "default": true,
+    "obvious_hint": true
+  },
+  "inject_memory_and_diary": {
+    "type": "bool",
+    "description": "是否注入核心记忆与近 N 天日记（待定）",
+    "hint": "首版仅保留配置项，不执行读取或注入；待与 astrbot_plugin_romantic_memory 和核心记忆插件确定联动协议。",
+    "default": false
+  },
+  "retention_limit": {
+    "type": "int",
+    "description": "小剧场保留数量",
+    "hint": "超过数量后自动删除最旧且未收藏的成品；收藏成品不受限制。",
+    "default": 6,
+    "minimum": 1,
+    "maximum": 1000
+  },
+  "allowed_qq_ids": {
+    "type": "list",
+    "description": "允许使用小剧场指令的 QQ 号白名单",
+    "hint": "每项填写一个纯数字 QQ 号。留空时所有聊天指令都会返回未配置白名单错误。",
+    "items": {
+      "type": "string"
+    },
+    "default": [],
+    "obvious_hint": true
+  }
+}

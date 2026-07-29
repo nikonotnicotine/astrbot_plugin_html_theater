@@ -1,0 +1,1 @@
+"""HTML Theater AstrBot plugin."""
