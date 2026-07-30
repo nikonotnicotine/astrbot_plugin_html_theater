@@ -15,7 +15,12 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .html_utils import extract_html_text, sanitize_html
+from .html_utils import (
+    extract_html_text,
+    extract_image_urls,
+    normalize_image_urls,
+    sanitize_html,
+)
 
 SCHEMA_VERSION = 3
 PANEL_THEMES = {"pink-white", "black-white", "blue-white", "gray-white"}
@@ -119,7 +124,7 @@ def _shared_state_lock(state_path: Path) -> threading.RLock:
 
 
 def _redact_snapshot(snapshot: dict[str, Any] | None) -> dict[str, Any]:
-    redacted = copy.deepcopy(snapshot or {})
+    redacted = copy.deepcopy(snapshot) if isinstance(snapshot, dict) else {}
     redacted.pop("conversation_context", None)
     return redacted
 
@@ -215,6 +220,12 @@ class TheaterStorage:
             if not isinstance(play, dict):
                 continue
             snapshot = _redact_snapshot(play.get("snapshot"))
+            snapshot["image_urls"] = normalize_image_urls(
+                snapshot.get("image_urls", [])
+            ) or extract_image_urls(
+                snapshot.get("template_prompt")
+                or play.get("template_prompt", "")
+            )
             play["snapshot"] = snapshot
             if snapshot.get("persona_id") and not play.get("persona_id"):
                 play["persona_id"] = str(snapshot["persona_id"])
@@ -906,8 +917,21 @@ class TheaterStorage:
                     raw_html = archive.read(backup_file).decode("utf-8")
                 except (KeyError, UnicodeDecodeError) as exc:
                     raise ValueError("备份缺少索引引用的 HTML 文件。") from exc
+                snapshot = (
+                    play.get("snapshot") if isinstance(play.get("snapshot"), dict) else {}
+                )
+                allowed_image_urls = normalize_image_urls(
+                    snapshot.get("image_urls", [])
+                )
+                if not allowed_image_urls:
+                    allowed_image_urls = extract_image_urls(
+                        play.get("template_prompt", "")
+                    )
                 try:
-                    html_files[backup_file] = sanitize_html(raw_html)
+                    html_files[backup_file] = sanitize_html(
+                        raw_html,
+                        allowed_image_urls,
+                    )
                 except ValueError as exc:
                     raise ValueError(f"备份 HTML 无效：{backup_file}") from exc
         return manifest, html_files

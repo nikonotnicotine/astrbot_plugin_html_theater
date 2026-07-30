@@ -11,19 +11,7 @@ from aiohttp import web
 
 from .storage import TheaterStorage
 
-THEATER_CSP: Final[str] = (
-    "default-src 'none'; "
-    "style-src 'unsafe-inline'; "
-    "img-src 'none'; "
-    "script-src 'none'; "
-    "connect-src 'none'; "
-    "font-src 'none'; "
-    "frame-src 'none'; "
-    "object-src 'none'; "
-    "base-uri 'none'; "
-    "form-action 'none'; "
-    "sandbox"
-)
+THEATER_CSP: Final[str] = ""
 
 
 class TheaterWebServer:
@@ -62,9 +50,8 @@ class TheaterWebServer:
         return bool(token) and hmac.compare_digest(token, self._auth_token)
 
     @staticmethod
-    def _security_headers() -> dict[str, str]:
+    def _security_headers(_allowed_image_urls: object = ()) -> dict[str, str]:
         return {
-            "Content-Security-Policy": THEATER_CSP,
             "Cache-Control": "no-store",
             "Referrer-Policy": "no-referrer",
             "X-Content-Type-Options": "nosniff",
@@ -169,7 +156,7 @@ place-items:center;background:#17151c;color:#eee;font-family:sans-serif}</style>
         return await self._play_response(request.match_info["play_id"])
 
     async def _play_response(self, play_id: str) -> web.Response:
-        """Read an indexed play and apply a restrictive CSP.
+        """Read an indexed play and return the saved HTML unchanged.
 
         Args:
             play_id: Opaque play identifier from the route or current selection.
@@ -177,6 +164,7 @@ place-items:center;background:#17151c;color:#eee;font-family:sans-serif}</style>
         Returns:
             Generated HTML or a safe 404 response.
         """
+        play = self.storage.get_play(play_id)
         try:
             content = self.storage.read_play_html(play_id)
         except FileNotFoundError:

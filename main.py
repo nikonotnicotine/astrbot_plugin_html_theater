@@ -23,6 +23,7 @@ from .generator import (
     build_continuation_messages,
     build_generation_messages,
 )
+from .html_utils import extract_image_urls, normalize_image_urls
 from .storage import TheaterStorage, normalize_title
 from .web_server import TheaterWebServer
 
@@ -32,15 +33,15 @@ REACTION_SYSTEM_PROMPT = (
 )
 REQUESTED_BACKUP_DIR = Path(r"F:\qq\AstrBotLauncher-0.3.0\给gpt进行备份的")
 THEATER_COMMAND_PATTERN = re.compile(
-    r"^\s*/?(?:生成小剧场|小剧场目录|小剧场|生成随机小剧场|查看小剧场)(?:\s|$)"
+    r"^\s*/?(?:生成小剧场|临时小剧场|小剧场目录|小剧场|生成随机小剧场|查看小剧场)(?:\s|$)"
 )
 
 
 @register(
     PLUGIN_NAME,
     "nikonotnicotine",
-    "生成、保存和展示安全 HTML 小剧场，并提供模板、续写、人设与备份面板。",
-    "1.2.1",
+    "生成、保存和展示 HTML 小剧场，并提供模板、续写、人设与备份面板。",
+    "1.3.1",
 )
 class HtmlTheaterPlugin(Star):
     """Generate HTML theaters with a separate API and react in the active persona."""
@@ -139,7 +140,7 @@ class HtmlTheaterPlugin(Star):
         if bool(self._config("inject_memory_and_diary", False)):
             logger.warning(
                 "[HTML Theater] inject_memory_and_diary is reserved and has no "
-                "effect in v1.2.1"
+                "effect in v1.3.1"
             )
         if bool(self._config("web_enabled", False)):
             candidate = self._new_web_server()
@@ -453,10 +454,12 @@ class HtmlTheaterPlugin(Star):
                 text = text.replace(marker, replacement)
             return text
 
+        template_prompt = resolve(template["prompt"])
         snapshot = {
             "root_title": str(template["title"]),
             "template_title": str(template["title"]),
-            "template_prompt": resolve(template["prompt"]),
+            "template_prompt": template_prompt,
+            "image_urls": extract_image_urls(template_prompt),
             "system_prompt": str(
                 self._config("theater_system_prompt", "") or ""
             ).strip(),
@@ -491,7 +494,10 @@ class HtmlTheaterPlugin(Star):
         """
         async with self.generation_lock:
             generator = await self._generator()
-            html = await generator.generate(build_generation_messages(snapshot))
+            html = await generator.generate(
+                build_generation_messages(snapshot),
+                snapshot.get("image_urls", []),
+            )
             play = self.storage.add_play(
                 str(snapshot.get("root_title") or "小剧场"),
                 html,
@@ -539,6 +545,9 @@ class HtmlTheaterPlugin(Star):
                     "template_title": source.get("template_title")
                     or source.get("title"),
                     "template_prompt": source.get("template_prompt", ""),
+                    "image_urls": extract_image_urls(
+                        source.get("template_prompt", "")
+                    ),
                     "system_prompt": str(
                         self._config("theater_system_prompt", "") or ""
                     ),
@@ -552,6 +561,19 @@ class HtmlTheaterPlugin(Star):
             snapshot.setdefault(
                 "persona_id", str(source.get("persona_id") or "default")
             )
+            source_template_prompt = str(
+                snapshot.get("template_prompt")
+                or source.get("template_prompt")
+                or ""
+            )
+            inherited_image_urls = normalize_image_urls(
+                snapshot.get("image_urls", [])
+            )
+            if not inherited_image_urls:
+                inherited_image_urls = extract_image_urls(source_template_prompt)
+            snapshot["image_urls"] = normalize_image_urls(
+                [*inherited_image_urls, *extract_image_urls(continuation_prompt)]
+            )
             snapshot["continuation_prompt"] = continuation_prompt
             generator = await self._generator()
             html = await generator.generate(
@@ -559,7 +581,8 @@ class HtmlTheaterPlugin(Star):
                     snapshot,
                     source_html,
                     continuation_prompt,
-                )
+                ),
+                snapshot.get("image_urls", []),
             )
             base_play_id, chapter, title = self.storage.continuation_identity(source)
             play = self.storage.add_play(
@@ -779,6 +802,24 @@ class HtmlTheaterPlugin(Star):
             return
         template = random.choice(templates)
         async for result in self._run_template_command(event, dict(template)):
+            yield result
+
+    @filter.command("临时小剧场")
+    async def generate_temporary_theater(
+        self,
+        event: AstrMessageEvent,
+        temporary_prompt: GreedyStr,
+    ):
+        """Generate from a one-shot prompt without saving a template."""
+        if error := self._whitelist_error(event):
+            yield event.plain_result(error)
+            return
+        prompt = str(temporary_prompt or "").strip()
+        if not prompt:
+            yield event.plain_result("用法：/临时小剧场 <提示词>")
+            return
+        template = {"title": "临时小剧场", "prompt": prompt}
+        async for result in self._run_template_command(event, template):
             yield result
 
     @filter.command("查看小剧场")

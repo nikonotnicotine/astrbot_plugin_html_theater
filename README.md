@@ -2,9 +2,10 @@
 
 一个用于调用 OpenAI 兼容接口生成、保存和展示 HTML 小剧场。
 
-- 当前版本：`v1.2.1`
+- 当前版本：`v1.3.1`
 - 适配 AstrBot：`>=4.26.0`
 - 插件目录名：`astrbot_plugin_html_theater`
+- 仓库：[nikonotnicotine/astrbot_plugin_html_theater](https://github.com/nikonotnicotine/astrbot_plugin_html_theater)
 
 ## 一、什么是“小剧场”？
 
@@ -36,12 +37,14 @@
 - 支持系统提示词、文风提示词、模板提示词和 Persona 人设组合。
 - 支持 `{{char}}`、`{{user}}` 变量替换。
 - 支持多个 Persona ID，并按照当前会话 Persona 分开编号。
+- 支持使用 `/临时小剧场` 直接消费一次性提示词，不污染模板目录。
 - 支持空回复、HTML 截断时最多三次补救请求。
-- 清理 Markdown 代码围栏、`script`、`img`、iframe、事件属性和外链资源。
+- API 失败时显示 HTTP 状态含义和上游返回的安全错误摘要。
+- 保留模型返回的完整 HTML 内容，包括外部图片、CSS、JavaScript、事件属性、表单和网络资源；只移除外层 Markdown 代码围栏并要求返回完整 HTML 文档。
 - 每次生成保存为新成品，不覆盖同名文件。
 - 支持重试、线性章节续写、收藏和当前 Web 页面选择。
 - 提供 01—06 六个面板页面。
-- 提供独立 Web 展示、可选密码、CSP 和路径穿越防护。
+- 提供独立 Web 展示、可选密码和路径穿越防护；成品页面不附加插件 CSP。
 - 提供完整页面数据导出/导入，不备份 API 密钥和 AstrBot 插件配置。
 
 ## 三、安装
@@ -149,7 +152,7 @@ https://example.com/v1/chat/completions
 | `web_host` | Web 监听地址 | `127.0.0.1` | VPS 对外监听可填 `0.0.0.0` |
 | `web_port` | Web 监听端口 | `7315` | 被占用时请换端口 |
 | `web_password` | Web 访问密码 | 空 | 留空表示不启用密码 |
-| `theater_system_prompt` | 小剧场系统提示词 | 内置 HTML 约束提示词 | 控制输出格式和安全限制 |
+| `theater_system_prompt` | 小剧场系统提示词 | 内置 HTML 提示词 | 控制输出格式和生成行为 |
 | `style_prompt` | 小剧场文风提示词 | 空 | 留空时不追加文风提示 |
 | `continue_on_empty` | 空回/截断补救 | `true` | 最多补救三次，仍失败则不保存残缺文件 |
 | `inject_after_generation` | 生成后注入当前会话（没测） | `false` | 只对触发指令的当前会话生效 |
@@ -159,7 +162,13 @@ https://example.com/v1/chat/completions
 | `debug_enabled` | 插件调试日志 | `false` | 开启后增加插件 DEBUG 诊断，不修改全局日志级别 |
 | `allowed_qq_ids` | QQ 聊天白名单 | 空 | 为空时聊天指令直接报错 |
 
-内置系统提示词的核心约束包括：使用 HTML、禁止 Markdown 和 JavaScript、禁止 `img` 标签、根据内容选择 CSS 风格、在顶部标记小剧场类型。你可以在配置中替换或扩展它。
+内置系统提示词要求返回完整 HTML 并按小剧场提示词实现页面。生成请求会明确告诉模型：提示词要求的外部图片、CSS、JavaScript、事件属性、表单和网络行为都应原样实现；旧配置中的资源限制也不会再由插件清理生成结果。
+
+### 图片、脚本与样式规则
+
+- 图片、样式、脚本和其他资源完全按当前小剧场提示词及模型输出处理，不再做 URL 白名单或标签属性清理。
+- 生成结果会直接保存和展示；模型可以选择内联资源或外部 CDN 资源，也可以实现提示词要求的表单、事件属性和网络交互。
+- 控制面板预览 iframe 仍使用 `sandbox="allow-scripts"`，不授予 `allow-same-origin`；独立 Web 成品页面不附加插件 CSP。
 
 ## 六、一次生成的处理流程
 
@@ -178,7 +187,7 @@ https://example.com/v1/chat/completions
         ↓
 OpenAI 兼容 API
         ↓
-清理危险 HTML → 保存 HTML → 更新当前 Web 展示项
+原样保存 HTML → 更新当前 Web 展示项
 ```
 
 如果开启 `inject_after_generation`，生成成功后还会额外向当前会话 LLM 发送一次：
@@ -233,6 +242,8 @@ Persona1同人小剧场1-chapter3
 
 ## 八、六个控制面板页面
 
+控制面板支持手机屏幕：窄屏下导航自动换行，模板和成品表格会变成纵向字段卡片，表单、操作区和预览窗口按触控布局显示，不需要横向拖动整张表格。
+
 ### 01 模板目录
 
 - 搜索标题或提示词；
@@ -245,7 +256,7 @@ Persona1同人小剧场1-chapter3
 
 - 查看生成和续写成品；
 - 查看 Persona、章节和生成时间；
-- 预览安全 HTML；
+- 预览生成的 HTML；
 - 收藏/取消收藏；
 - 删除成品；
 - 选择当前 Web 页面显示项；
@@ -341,6 +352,18 @@ Persona1同人小剧场1-chapter3
 `/生成小剧场` 的兼容别名。
 
 ```text
+/临时小剧场 <提示词>
+```
+
+直接使用本次提示词生成类型为“临时小剧场”的成品，不会在模板目录新增记录。生成的 HTML 仍会进入成品列表，可预览、收藏、续写、备份，并受 `retention_limit` 管理。例如：
+
+```text
+/临时小剧场 {{char}} 和 {{user}} 被困在只营业一晚的午夜书店
+```
+
+临时小剧场成功生成后，也可以使用 `/小剧场 重试` 重新生成。
+
+```text
 /生成随机小剧场
 ```
 
@@ -370,6 +393,8 @@ Persona1同人小剧场1-chapter3
 - `不在 QQ 白名单中`：当前发送者没有权限；
 - `未找到小剧场模板`：检查标题、空格和模板是否已在页面保存；
 - API 配置缺失：检查 URL、密钥和模型；
+- API 请求失败：错误会同时显示 HTTP 状态含义及上游的 `error.message`、`message`、`detail` 或错误代码；例如 401 通常是密钥无效，404 通常是地址、路径或模型不存在，429 通常是频率或额度限制；
+- API 返回无效 JSON：检查 API URL 是否指向 OpenAI 兼容的 `/chat/completions` 接口；
 - 空回/截断补救失败：接口多次没有返回完整 HTML，需要查看 API 服务端响应或打开调试日志。
 
 ## 十、Web 展示
@@ -384,7 +409,7 @@ http://127.0.0.1:7315/
 
 设置 `web_password` 后，访问页面会先显示密码登录页，并通过安全 Cookie 维持登录状态。
 
-Web 页面只展示插件保存的 HTML，不允许通过 URL 访问 HTML 保存目录之外的文件。生成内容还会附加 CSP 和 iframe sandbox 限制，禁止脚本、图片和外部请求。
+Web 页面只展示插件保存的 HTML，不允许通过 URL 访问 HTML 保存目录之外的文件。成品页面不附加插件 CSP；控制面板预览仍保留 iframe sandbox 隔离。
 
 ## 十一、“未找到该路由”排查（没找到就重启）
 
@@ -399,7 +424,7 @@ Web 页面只展示插件保存的 HTML，不允许通过 URL 访问 HTML 保存
 1. 在 AstrBot 中完整重载 `astrbot_plugin_html_theater`；
 2. 如果仍然提示，重启 AstrBot；
 3. 浏览器执行 `Ctrl + F5`，清除旧版面板 JavaScript 缓存；
-4. 确认插件版本已经显示为 `v1.2.1`。
+4. 确认插件版本已经显示为 `v1.3.1`。
 
 从 v1.2.1 开始，页面路由在插件实例初始化时注册，热重载后不会再依赖一次性的全局加载事件。05 配色保存接口是：
 

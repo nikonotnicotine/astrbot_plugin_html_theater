@@ -167,7 +167,7 @@ class TheaterWebApi:
             return jsonify({"status": "error", "message": "ids 必须是列表。"}), 400
         deleted = self.plugin.storage.delete_templates(ids)
         self.plugin._debug(f"panel templates deleted count={deleted}")
-        return jsonify({"deleted": deleted})
+        return jsonify({"data": {"deleted": deleted}})
 
     async def delete_plays(self) -> Any:
         """Delete selected generated plays and update current selection."""
@@ -177,7 +177,7 @@ class TheaterWebApi:
             return jsonify({"status": "error", "message": "ids 必须是列表。"}), 400
         deleted = self.plugin.storage.delete_plays(ids)
         self.plugin._debug(f"panel plays deleted count={deleted}")
-        return jsonify({"deleted": deleted})
+        return jsonify({"data": {"deleted": deleted}})
 
     async def favorite_play(self) -> Any:
         """Set one favorite flag."""

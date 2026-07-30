@@ -194,7 +194,7 @@ input[type="checkbox"] {
 .button.danger { color: var(--danger); }
 .icon-button { width: 46px; min-width: 46px; padding: 0; color: var(--accent); font-size: 24px; }
 
-.message { min-height: 28px; margin: 0 4px 12px; font-weight: 800; }
+.message { min-height: 28px; margin: 0 4px 12px; font-weight: 800; overflow-wrap: anywhere; white-space: pre-wrap; }
 .message.success { color: var(--success); }
 .message.error { color: var(--danger); }
 
@@ -306,8 +306,8 @@ dialog::backdrop { background: rgba(79, 90, 103, .48); backdrop-filter: blur(3px
   .app-shell { display: block; width: min(100% - 24px, 720px); padding-top: 14px; }
   .sidebar { position: static; min-height: 0; padding: 14px; border-radius: 20px; }
   .brand { padding-bottom: 14px; }
-  .side-nav { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 10px; }
-  .nav-item { flex: 0 0 auto; width: auto; min-height: 44px; padding: 8px 13px; }
+  .side-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 4px 2px 10px; }
+  .nav-item { width: 100%; min-width: 0; min-height: 48px; padding: 8px 13px; white-space: normal; }
   .sidebar-note { display: none; }
   .workspace { padding-top: 22px; }
   .topbar { padding: 0 2px 18px; }
@@ -318,10 +318,65 @@ dialog::backdrop { background: rgba(79, 90, 103, .48); backdrop-filter: blur(3px
   .section-head.compact { flex-direction: row; align-items: center; }
   .two-column, .backup-grid { grid-template-columns: 1fr; }
   .theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .favorite-grid { grid-template-columns: 1fr; }
   .action-row { flex-wrap: wrap; justify-content: stretch; }
   .action-row .button { flex: 1; }
+  .continuation-grid .button { justify-self: stretch; }
+  .table-well { overflow: visible; box-shadow: none; }
+  table, tbody { display: block; width: 100%; }
+  thead { display: none; }
+  tbody { display: grid; gap: 14px; }
+  tbody tr {
+    display: grid;
+    padding: 8px 13px;
+    border-radius: 17px;
+    box-shadow: var(--pressed);
+  }
+  th, td {
+    display: grid;
+    grid-template-columns: minmax(82px, .36fr) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    min-width: 0;
+    padding: 10px 3px;
+    overflow-wrap: anywhere;
+  }
+  td::before {
+    content: attr(data-label);
+    color: #7d8793;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  td.prompt-cell, td.text-cell { min-width: 0; max-width: none; }
+  td .truncate { -webkit-line-clamp: 5; }
+  td input[type="checkbox"] { justify-self: start; }
+  .empty-row { padding: 0; }
+  .empty-row td { display: block; border-bottom: 0; }
+  .empty-row td::before { content: none; }
+  .row-actions { flex-wrap: wrap; }
+  .row-button { min-height: 44px; padding: 8px 10px; }
+  dialog {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 16px);
+    height: calc(100dvh - 16px);
+    border-radius: 18px;
+  }
+  .dialog-head { gap: 12px; padding: 12px 14px; }
+  .dialog-head h2 { min-width: 0; font-size: 19px; overflow-wrap: anywhere; }
+  #preview-frame { height: calc(100% - 68px); }
 }
 
 @media (max-width: 460px) {
+  .app-shell { width: calc(100% - 12px); }
+  .nav-item span { display: none; }
+  .top-actions { grid-template-columns: 1fr; }
+  .search-box { grid-column: auto; }
+  .panel-card { padding: 15px; }
+  .section-head > .button { width: 100%; }
   .theme-grid { grid-template-columns: 1fr; }
+  .action-row { display: grid; grid-template-columns: 1fr; }
+  .action-row .button { width: 100%; }
+  th, td { grid-template-columns: 74px minmax(0, 1fr); gap: 9px; }
 }

@@ -66,8 +66,24 @@ async function api(path, options = {}) {
     requestOptions.body = JSON.stringify(requestOptions.body);
   }
   const response = await fetch(`${API_ROOT}${path}`, requestOptions);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message || `Request failed (${response.status})`);
+  const rawBody = await response.text();
+  let data = {};
+  try {
+    data = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    const summary = rawBody.replace(/\s+/g, " ").trim();
+    const statusLabel = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
+    if (!response.ok) {
+      throw new Error(`插件 API 请求失败（${statusLabel}）${summary ? `：${summary.slice(0, 500)}` : "，服务端未返回错误详情。"}`);
+    }
+    throw new Error(`插件 API 返回无效 JSON（${statusLabel}），请检查 AstrBot 日志。`);
+  }
+  if (!response.ok || data?.status === "error") {
+    const nestedError = data?.error && typeof data.error === "object" ? data.error : {};
+    const detail = data?.message || nestedError.message || data?.detail || (typeof data?.error === "string" ? data.error : "");
+    const statusLabel = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
+    throw new Error(`插件 API 请求失败（${statusLabel}）${detail ? `：${String(detail).slice(0, 500)}` : "，服务端未返回错误详情。"}`);
+  }
   return data;
 }
 
@@ -95,12 +111,12 @@ function switchView(viewName) {
 function renderTemplates() {
   $("template-body").innerHTML = state.templates.map((template) => `
     <tr>
-      <td><input class="template-check" type="checkbox" data-id="${escapeHtml(template.id)}"${state.selectedTemplates.has(template.id) ? " checked" : ""}></td>
-      <td><strong>${escapeHtml(template.title)}</strong></td>
-      <td class="prompt-cell"><div class="truncate">${escapeHtml(template.prompt)}</div></td>
-      <td><button class="row-button template-edit" type="button" data-id="${escapeHtml(template.id)}">编辑</button></td>
+      <td data-label="选择"><input class="template-check" type="checkbox" data-id="${escapeHtml(template.id)}"${state.selectedTemplates.has(template.id) ? " checked" : ""}></td>
+      <td data-label="标题"><strong>${escapeHtml(template.title)}</strong></td>
+      <td class="prompt-cell" data-label="提示词"><div class="truncate">${escapeHtml(template.prompt)}</div></td>
+      <td data-label="操作"><button class="row-button template-edit" type="button" data-id="${escapeHtml(template.id)}">编辑</button></td>
     </tr>
-  `).join("") || '<tr><td class="empty" colspan="4">没有匹配的模板</td></tr>';
+  `).join("") || '<tr class="empty-row"><td class="empty" colspan="4">没有匹配的模板</td></tr>';
 
   document.querySelectorAll(".template-check").forEach((checkbox) => {
     checkbox.addEventListener("change", () => {
@@ -123,15 +139,15 @@ function renderTemplates() {
 function renderPlays() {
   $("play-body").innerHTML = state.plays.map((play) => `
     <tr>
-      <td><input class="play-check" type="checkbox" data-id="${escapeHtml(play.id)}"${state.selectedPlays.has(play.id) ? " checked" : ""}></td>
-      <td class="text-cell"><strong>${escapeHtml(play.title)}</strong><div class="truncate">${escapeHtml(play.text || "")}</div></td>
-      <td><span class="persona-badge">${escapeHtml(play.persona_id || "legacy")}</span></td>
-      <td>${escapeHtml(play.chapter ? `chapter ${play.chapter}` : play.template_title || "普通生成")}</td>
-      <td>${escapeHtml(formatTime(play.created_at))}</td>
-      <td><button class="row-button play-favorite" type="button" data-id="${escapeHtml(play.id)}" data-favorite="${play.favorite ? "true" : "false"}">${play.favorite ? "★ 已收藏" : "☆ 收藏"}</button></td>
-      <td><div class="row-actions"><button class="row-button play-preview" type="button" data-id="${escapeHtml(play.id)}">预览</button><button class="row-button play-select" type="button" data-id="${escapeHtml(play.id)}">设为当前</button></div></td>
+      <td data-label="选择"><input class="play-check" type="checkbox" data-id="${escapeHtml(play.id)}"${state.selectedPlays.has(play.id) ? " checked" : ""}></td>
+      <td class="text-cell" data-label="成品"><strong>${escapeHtml(play.title)}</strong><div class="truncate">${escapeHtml(play.text || "")}</div></td>
+      <td data-label="Persona"><span class="persona-badge">${escapeHtml(play.persona_id || "legacy")}</span></td>
+      <td data-label="类型">${escapeHtml(play.chapter ? `chapter ${play.chapter}` : play.template_title || "普通生成")}</td>
+      <td data-label="生成时间">${escapeHtml(formatTime(play.created_at))}</td>
+      <td data-label="收藏"><button class="row-button play-favorite" type="button" data-id="${escapeHtml(play.id)}" data-favorite="${play.favorite ? "true" : "false"}">${play.favorite ? "★ 已收藏" : "☆ 收藏"}</button></td>
+      <td data-label="操作"><div class="row-actions"><button class="row-button play-preview" type="button" data-id="${escapeHtml(play.id)}">预览</button><button class="row-button play-select" type="button" data-id="${escapeHtml(play.id)}">设为当前</button></div></td>
     </tr>
-  `).join("") || '<tr><td class="empty" colspan="7">还没有生成小剧场</td></tr>';
+  `).join("") || '<tr class="empty-row"><td class="empty" colspan="7">还没有生成小剧场</td></tr>';
 
   const options = state.plays.map((play) => `<option value="${escapeHtml(play.id)}"${play.id === state.currentPlayId ? " selected" : ""}>${escapeHtml(play.title)}</option>`).join("");
   $("current-play").innerHTML = options || '<option value="">暂无成品</option>';
@@ -328,8 +344,9 @@ async function deleteTemplates() {
   if (!window.confirm(`确定删除选中的 ${state.selectedTemplates.size} 个模板吗？`)) return;
   try {
     const result = await api("/templates/delete", { method: "POST", body: { ids: [...state.selectedTemplates] } });
+    const deleted = Number(result?.data?.deleted ?? result?.deleted ?? 0);
     await loadState();
-    setMessage(`已删除 ${result.deleted} 个模板。`);
+    setMessage(`已删除 ${deleted} 个模板。`);
   } catch (error) { setMessage(error.message, true); }
 }
 
@@ -338,8 +355,9 @@ async function deletePlays() {
   if (!window.confirm(`确定删除选中的 ${state.selectedPlays.size} 个成品及 HTML 文件吗？`)) return;
   try {
     const result = await api("/plays/delete", { method: "POST", body: { ids: [...state.selectedPlays] } });
+    const deleted = Number(result?.data?.deleted ?? result?.deleted ?? 0);
     await loadState();
-    setMessage(`已删除 ${result.deleted} 个成品。`);
+    setMessage(`已删除 ${deleted} 个成品。`);
   } catch (error) { setMessage(error.message, true); }
 }
 
@@ -429,7 +447,16 @@ async function exportBackup() {
     if (bridge?.download) await bridge.download("backup/export", {}, filename);
     else {
       const response = await fetch(`${API_ROOT}/backup/export`, { credentials: "same-origin" });
-      if (!response.ok) throw new Error(`导出失败 (${response.status})`);
+      if (!response.ok) {
+        const rawBody = await response.text();
+        let detail = rawBody.replace(/\s+/g, " ").trim();
+        try {
+          const payload = rawBody ? JSON.parse(rawBody) : {};
+          detail = payload.message || payload.detail || (typeof payload.error === "string" ? payload.error : detail);
+        } catch { /* Keep the bounded plain-text response. */ }
+        const statusLabel = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
+        throw new Error(`导出失败（${statusLabel}）${detail ? `：${String(detail).slice(0, 500)}` : "，服务端未返回错误详情。"}`);
+      }
       const url = URL.createObjectURL(await response.blob());
       const anchor = document.createElement("a");
       anchor.href = url;

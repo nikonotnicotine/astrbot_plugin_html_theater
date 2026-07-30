@@ -1,7 +1,7 @@
 name: astrbot_plugin_html_theater
 display_name: 小剧场
-desc: "使用 OpenAI 兼容接口生成、保存和展示安全 HTML 小剧场，提供模板、人设、续写、收藏与备份控制面板。"
-short_desc: "HTML 小剧场生成、续写、Web 展示与管理面板。"
-version: v1.2.1
+desc: "使用 OpenAI 兼容接口生成、保存和展示 HTML 小剧场，提供临时提示词、模板、人设、续写、收藏与备份控制面板。"
+short_desc: "HTML 小剧场临时生成、续写、Web 展示与管理面板。"
+version: v1.3.1
 author: nikonotnicotine
 astrbot_version: ">=4.26.0"
