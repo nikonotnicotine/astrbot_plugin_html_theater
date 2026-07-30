@@ -373,7 +373,7 @@ async function deleteTemplates() {
 
 async function deletePlays() {
   if (!state.selectedPlays.size) return setMessage("请先选择要删除的成品。", true);
-  if (!(await requestPanelConfirmation("确定删除选中的 " + state.selectedPlays.size + " 个成品及 HTML 文件吗？"))) return;
+  if (!window.confirm(`确定删除选中的 ${state.selectedPlays.size} 个成品及 HTML 文件吗？`)) return;
   try {
     const result = await api("/plays/delete", { method: "POST", body: { ids: [...state.selectedPlays] } });
     const deleted = Number(result?.data?.deleted ?? result?.deleted ?? 0);
@@ -449,7 +449,7 @@ async function saveProfile() {
 
 async function deleteProfile() {
   const personaId = state.activeProfileId;
-  if (!personaId || !(await requestPanelConfirmation("确定删除 Persona " + personaId + " 的页面人设配置吗？"))) return;
+  if (!personaId || !window.confirm(`确定删除 Persona ${personaId} 的页面人设配置吗？`)) return;
   try {
     await api("/profiles/delete", { method: "POST", body: { persona_id: personaId } });
     state.activeProfileId = "";
