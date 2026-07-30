@@ -4,4 +4,5 @@ desc: "使用 OpenAI 兼容接口生成、保存和展示 HTML 小剧场，提�
 short_desc: "HTML 小剧场临时生成、续写、Web 展示与管理面板。"
 version: v1.3.1
 author: nikonotnicotine
+repo: https://github.com/nikonotnicotine/astrbot_plugin_html_theater
 astrbot_version: ">=4.26.0"
