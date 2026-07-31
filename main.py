@@ -5,6 +5,7 @@ import json
 import logging
 import random
 import re
+import time
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -23,7 +24,7 @@ from .generator import (
     build_continuation_messages,
     build_generation_messages,
 )
-from .html_utils import extract_image_urls, normalize_image_urls
+from .html_utils import extract_html_text, extract_image_urls, normalize_image_urls
 from .storage import TheaterStorage, normalize_title
 from .web_server import TheaterWebServer
 
@@ -136,11 +137,6 @@ class HtmlTheaterPlugin(Star):
         if self.http_session is None or self.http_session.closed:
             self.http_session = aiohttp.ClientSession(
                 timeout=aiohttp.ClientTimeout(total=300)
-            )
-        if bool(self._config("inject_memory_and_diary", False)):
-            logger.warning(
-                "[HTML Theater] inject_memory_and_diary is reserved and has no "
-                "effect in v1.3.1"
             )
         if bool(self._config("web_enabled", False)):
             candidate = self._new_web_server()
@@ -417,6 +413,86 @@ class HtmlTheaterPlugin(Star):
         self._debug(f"conversation context selected messages={len(selected)}")
         return selected
 
+    async def _recent_memory_context(
+        self,
+        event: AstrMessageEvent,
+        persona_id: str,
+    ) -> str:
+        """Read recent records from the optional Romantic Memory plugin.
+
+        Args:
+            event: Current command event.
+            persona_id: Persona selected for the current conversation.
+
+        Returns:
+            Formatted recent memory context, or an empty string when unavailable.
+        """
+        if not bool(self._config("inject_memory_and_diary", False)):
+            return ""
+        try:
+            get_registered_star = getattr(self.context, "get_registered_star", None)
+            metadata = (
+                get_registered_star("astrbot_plugin_romantic_memory")
+                if callable(get_registered_star)
+                else None
+            )
+            memory_plugin = getattr(metadata, "star_cls", None)
+            if memory_plugin is None:
+                return ""
+
+            config = getattr(memory_plugin, "config", {})
+            keep_days = int(config.get("context_keep_limit", 5) or 0)
+            if keep_days == 0:
+                return ""
+            sessions = getattr(memory_plugin, "sessions", None)
+            store = getattr(memory_plugin, "store", None)
+            if sessions is None or store is None:
+                return ""
+
+            session_id = sessions.key(str(event.unified_msg_origin))
+            records = await asyncio.to_thread(
+                store.list_records,
+                session_id,
+                persona_id,
+            )
+            cutoff = time.time() - keep_days * 86400 if keep_days > 0 else None
+            recent_records: list[dict[str, Any]] = []
+            for record in records:
+                content = str(record.get("content", "") or "").strip()
+                if not content:
+                    continue
+                if cutoff is not None:
+                    try:
+                        timestamp = float(record.get("timestamp", 0) or 0)
+                    except (TypeError, ValueError):
+                        continue
+                    if timestamp < cutoff:
+                        continue
+                recent_records.append(record)
+
+            if not recent_records:
+                return ""
+            recent_records.sort(
+                key=lambda item: float(item.get("timestamp", 0) or 0),
+                reverse=True,
+            )
+            lines = [
+                "- {} | {}".format(
+                    str(item.get("date", "unknown date") or "unknown date"),
+                    str(item.get("content", "") or "").strip(),
+                )
+                for item in recent_records
+            ]
+            self._debug(
+                "recent romantic memory selected "
+                f"session={session_id!r} persona={persona_id!r} "
+                f"keep_days={keep_days} records={len(lines)}"
+            )
+            return "Recent relationship memories (facts only):\n" + "\n".join(lines)
+        except Exception as exc:
+            logger.warning("[HTML Theater] recent memory lookup skipped: %s", exc)
+            return ""
+
     async def build_snapshot(
         self,
         event: AstrMessageEvent,
@@ -472,6 +548,7 @@ class HtmlTheaterPlugin(Star):
             "user_name": user_name,
             "user_prompt": resolve(profile.get("user_prompt", "")).strip(),
             "conversation_context": self._generation_context(conversation),
+            "memory_context": await self._recent_memory_context(event, persona_id),
         }
         self._debug(
             "snapshot resolved "
@@ -545,9 +622,7 @@ class HtmlTheaterPlugin(Star):
                     "template_title": source.get("template_title")
                     or source.get("title"),
                     "template_prompt": source.get("template_prompt", ""),
-                    "image_urls": extract_image_urls(
-                        source.get("template_prompt", "")
-                    ),
+                    "image_urls": extract_image_urls(source.get("template_prompt", "")),
                     "system_prompt": str(
                         self._config("theater_system_prompt", "") or ""
                     ),
@@ -562,13 +637,9 @@ class HtmlTheaterPlugin(Star):
                 "persona_id", str(source.get("persona_id") or "default")
             )
             source_template_prompt = str(
-                snapshot.get("template_prompt")
-                or source.get("template_prompt")
-                or ""
+                snapshot.get("template_prompt") or source.get("template_prompt") or ""
             )
-            inherited_image_urls = normalize_image_urls(
-                snapshot.get("image_urls", [])
-            )
+            inherited_image_urls = normalize_image_urls(snapshot.get("image_urls", []))
             if not inherited_image_urls:
                 inherited_image_urls = extract_image_urls(source_template_prompt)
             snapshot["image_urls"] = normalize_image_urls(
@@ -651,12 +722,20 @@ class HtmlTheaterPlugin(Star):
         Returns:
             ProviderRequest yielded into the normal AstrBot LLM pipeline.
         """
+        reaction_source = str(play.get("text", "") or "").strip()
+        try:
+            reaction_source = self.storage.read_play_html(str(play.get("id", "") or ""))
+        except (FileNotFoundError, OSError, UnicodeError, ValueError):
+            pass
+        reaction_text = extract_html_text(reaction_source)
+        if not reaction_text:
+            reaction_text = extract_html_text(str(play.get("text", "") or ""))
         reaction_prompt = "\n\n".join(
             [
                 "[小剧场提示词]",
                 str(snapshot.get("template_prompt", "")),
                 "[小剧场正文]",
-                str(play.get("text", "")),
+                reaction_text,
                 "请直接以角色身份自然回应用户。",
             ]
         )

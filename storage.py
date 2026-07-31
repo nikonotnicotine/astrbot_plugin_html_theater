@@ -126,6 +126,7 @@ def _shared_state_lock(state_path: Path) -> threading.RLock:
 def _redact_snapshot(snapshot: dict[str, Any] | None) -> dict[str, Any]:
     redacted = copy.deepcopy(snapshot) if isinstance(snapshot, dict) else {}
     redacted.pop("conversation_context", None)
+    redacted.pop("memory_context", None)
     return redacted
 
 
@@ -223,8 +224,7 @@ class TheaterStorage:
             snapshot["image_urls"] = normalize_image_urls(
                 snapshot.get("image_urls", [])
             ) or extract_image_urls(
-                snapshot.get("template_prompt")
-                or play.get("template_prompt", "")
+                snapshot.get("template_prompt") or play.get("template_prompt", "")
             )
             play["snapshot"] = snapshot
             if snapshot.get("persona_id") and not play.get("persona_id"):
@@ -918,7 +918,9 @@ class TheaterStorage:
                 except (KeyError, UnicodeDecodeError) as exc:
                     raise ValueError("备份缺少索引引用的 HTML 文件。") from exc
                 snapshot = (
-                    play.get("snapshot") if isinstance(play.get("snapshot"), dict) else {}
+                    play.get("snapshot")
+                    if isinstance(play.get("snapshot"), dict)
+                    else {}
                 )
                 allowed_image_urls = normalize_image_urls(
                     snapshot.get("image_urls", [])
