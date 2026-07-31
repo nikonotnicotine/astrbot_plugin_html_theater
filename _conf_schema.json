@@ -56,14 +56,27 @@
   "inject_after_generation": {
     "type": "bool",
     "description": "生成后将小剧场文字注入当前 LLM",
-    "hint": "这个暂时没测试过，不知道有没有bug。开启后提取本次小剧场提示词和正文，交给触发指令的当前会话人格公开回应一次。",
+    "hint": "开启后从保存的 HTML 中提取可见正文，连同本次小剧场提示词交给触发指令的当前会话人格回应一次；不会把 CSS、JavaScript 或完整 HTML 注入当前 LLM。",
     "default": false,
     "obvious_hint": true
+  },
+  "inject_theater_prompt_after_generation": {
+    "type": "bool",
+    "description": "注入当前 LLM 时是否包含小剧场提示词",
+    "hint": "默认开启。关闭后仅注入小剧场正文，避免当前 LLM 将本次小剧场提示词与之前的提示词关联。",
+    "default": true,
+    "obvious_hint": true
+  },
+  "llm_injection_prompt": {
+    "type": "text",
+    "description": "小剧场注入给 LLM 时提示词",
+    "hint": "留空时不注入此提示词。",
+    "default": "[系统提示]这是你的真实经历与内容，请根据你当前人设，直接自然回应用户。"
   },
   "inject_conversation_context": {
     "type": "bool",
     "description": "是否开启小剧场注入当前会话上下文",
-    "hint": "依旧没测。开启后将触发会话最近 20 条普通 user/assistant 文字消息发送给小剧场 API；会排除小剧场控制指令，且不会写入成品索引或备份。",
+    "hint": "开启后将触发会话最近 20 条普通 user/assistant 文字消息发送给小剧场 API；会排除小剧场控制指令，且不会写入成品索引或备份。",
     "default": false,
     "obvious_hint": true
   },
@@ -94,8 +107,8 @@
   },
   "inject_memory_and_diary": {
     "type": "bool",
-    "description": "是否注入核心记忆与近 N 天日记（待定）",
-    "hint": "甚至没写。首版仅保留配置项，不执行读取或注入；待与 astrbot_plugin_romantic_memory 和核心记忆插件确定联动协议。",
+    "description": "是否将 romantic_memory 近 N 天记忆注入小剧场生成 API",
+    "hint": "开启后读取当前私聊和 Persona 对应的 romantic_memory 记录；N 复用 romantic_memory.context_keep_limit。romantic_memory 未加载或没有记录时跳过注入。",
     "default": false
   },
   "retention_limit": {

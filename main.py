@@ -29,8 +29,8 @@ from .storage import TheaterStorage, normalize_title
 from .web_server import TheaterWebServer
 
 PLUGIN_NAME = "astrbot_plugin_html_theater"
-REACTION_SYSTEM_PROMPT = (
-    "这是一个你与用户的小剧场，请参考这个小剧场回复她，不要像人机一样回复，禁止 OOC。"
+DEFAULT_LLM_INJECTION_PROMPT = (
+    "[系统提示]这是你的真实经历与内容，请根据你当前人设，直接自然回应用户。"
 )
 REQUESTED_BACKUP_DIR = Path(r"F:\qq\AstrBotLauncher-0.3.0\给gpt进行备份的")
 THEATER_COMMAND_PATTERN = re.compile(
@@ -730,16 +730,19 @@ class HtmlTheaterPlugin(Star):
         reaction_text = extract_html_text(reaction_source)
         if not reaction_text:
             reaction_text = extract_html_text(str(play.get("text", "") or ""))
-        reaction_prompt = "\n\n".join(
-            [
-                "[小剧场提示词]",
-                str(snapshot.get("template_prompt", "")),
-                "[小剧场正文]",
-                reaction_text,
-                "请直接以角色身份自然回应用户。",
-            ]
-        )
-        system_parts = [REACTION_SYSTEM_PROMPT]
+        reaction_parts: list[str] = []
+        injection_prompt = str(
+            self._config("llm_injection_prompt", DEFAULT_LLM_INJECTION_PROMPT) or ""
+        ).strip()
+        if injection_prompt:
+            reaction_parts.append(injection_prompt)
+        if bool(self._config("inject_theater_prompt_after_generation", True)):
+            template_prompt = str(snapshot.get("template_prompt", "")).strip()
+            if template_prompt:
+                reaction_parts.extend(["[小剧场提示词]", template_prompt])
+        reaction_parts.extend(["[小剧场正文]", reaction_text])
+        reaction_prompt = "\n\n".join(reaction_parts)
+        system_parts: list[str] = []
         if str(snapshot.get("persona_prompt", "")).strip():
             system_parts.append(
                 "# Persona Instructions\n\n" + str(snapshot["persona_prompt"]).strip()
@@ -791,6 +794,7 @@ class HtmlTheaterPlugin(Star):
         )
         yield event.plain_result(self._success_message(play))
         if bool(self._config("inject_after_generation", False)):
+            await asyncio.sleep(5)
             yield self._reaction_request(
                 event,
                 play,
@@ -841,6 +845,7 @@ class HtmlTheaterPlugin(Star):
                 return
             yield event.plain_result(self._success_message(play))
             if bool(self._config("inject_after_generation", False)):
+                await asyncio.sleep(5)
                 (
                     conversation,
                     _,
