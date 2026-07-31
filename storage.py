@@ -209,6 +209,20 @@ class TheaterStorage:
             state["plays"] = []
         if not isinstance(state["profiles"], dict):
             state["profiles"] = {}
+        normalized_templates: list[dict[str, Any]] = []
+        template_ids: set[str] = set()
+        for template in state["templates"]:
+            if not isinstance(template, dict):
+                continue
+            template_id = str(template.get("id", "") or "").strip()
+            if not template_id or template_id in template_ids:
+                template_id = uuid.uuid4().hex
+                while template_id in template_ids:
+                    template_id = uuid.uuid4().hex
+            template["id"] = template_id
+            template_ids.add(template_id)
+            normalized_templates.append(template)
+        state["templates"] = normalized_templates
         now = time.time()
         for persona_id, profile in list(state["profiles"].items()):
             if not isinstance(profile, dict):
@@ -432,12 +446,12 @@ class TheaterStorage:
         """
         with self._lock:
             self.refresh()
-            selected = {str(item) for item in template_ids}
+            selected = {str(item).strip() for item in template_ids if str(item).strip()}
             before = len(self.state["templates"])
             self.state["templates"] = [
                 item
                 for item in self.state["templates"]
-                if item.get("id") not in selected
+                if str(item.get("id", "")).strip() not in selected
             ]
             deleted = before - len(self.state["templates"])
             if deleted:
