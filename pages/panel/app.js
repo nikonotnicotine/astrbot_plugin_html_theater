@@ -14,6 +14,8 @@ const state = {
   activeProfileId: "",
   selectedTemplates: new Set(),
   selectedPlays: new Set(),
+  templatePage: 1,
+  templatePageSize: 10,
 };
 
 let preferencesSaveTimer = null;
@@ -109,14 +111,28 @@ function switchView(viewName) {
 }
 
 function renderTemplates() {
-  $("template-body").innerHTML = state.templates.map((template) => `
+  const total = state.templates.length;
+  const pageSize = state.templatePageSize;
+  const pageCount = pageSize ? Math.max(1, Math.ceil(total / pageSize)) : 1;
+  state.templatePage = Math.min(Math.max(1, state.templatePage), pageCount);
+  const firstIndex = pageSize ? (state.templatePage - 1) * pageSize : 0;
+  const visibleTemplates = pageSize
+    ? state.templates.slice(firstIndex, firstIndex + pageSize)
+    : state.templates;
+  $('template-page-size').value = pageSize ? String(pageSize) : 'all';
+  $('template-page-status').textContent = '第 ' + state.templatePage + ' / ' + pageCount + ' 页，共 ' + total + ' 个';
+  $('template-page-prev').disabled = state.templatePage <= 1;
+  $('template-page-next').disabled = state.templatePage >= pageCount;
+
+  $("template-body").innerHTML = visibleTemplates.map((template) => `
     <tr>
+      <td data-label="编号"><strong>${escapeHtml(template.number)}</strong></td>
       <td data-label="选择"><input class="template-check" type="checkbox" data-id="${escapeHtml(template.id)}"${state.selectedTemplates.has(template.id) ? " checked" : ""}></td>
       <td data-label="标题"><strong>${escapeHtml(template.title)}</strong></td>
       <td class="prompt-cell" data-label="提示词"><div class="truncate">${escapeHtml(template.prompt)}</div></td>
       <td data-label="操作"><button class="row-button template-edit" type="button" data-id="${escapeHtml(template.id)}">编辑</button></td>
     </tr>
-  `).join("") || '<tr class="empty-row"><td class="empty" colspan="4">没有匹配的模板</td></tr>';
+  `).join("") || '<tr class="empty-row"><td class="empty" colspan="5">没有匹配的模板</td></tr>';
 
   document.querySelectorAll(".template-check").forEach((checkbox) => {
     checkbox.addEventListener("change", () => {
@@ -215,7 +231,7 @@ function applyTheme(theme, persist = true) {
 async function savePanelPreferences(showMessage = true) {
   try {
     const result = await api("/preferences/save", { method: "POST", body: state.panelPreferences });
-    state.panelPreferences = { ...state.panelPreferences, ...(result.data || {}) };
+    state.panelPreferences = { ...state.panelPreferences, ...(result?.data ?? result ?? {}) };
     applyTheme(state.panelPreferences.theme, false);
     applyCustomCss(state.panelPreferences.custom_css);
     if (showMessage) setMessage("面板配色和自定义 CSS 已保存。");
@@ -305,6 +321,7 @@ async function loadState(preferredProfileId = "") {
     state.personas = personaResponse.data || [];
     state.selectedTemplates.clear();
     state.selectedPlays.clear();
+    state.templatePage = 1;
     $("template-select-all").checked = false;
     $("play-select-all").checked = false;
     renderTemplates();
@@ -335,13 +352,43 @@ async function saveTemplate() {
     const result = await api("/templates/save", { method: "POST", body: { id: $("template-id").value, title, prompt } });
     clearTemplateEditor();
     await loadState();
-    setMessage(`模板《${result.data.title}》已保存。`);
+    setMessage(`模板《${(result?.data ?? result)?.title}》已保存。`);
   } catch (error) { setMessage(error.message, true); }
 }
 
+function confirmAction(message) {
+  const dialog = $("confirm-dialog");
+  if (!dialog || typeof dialog.showModal !== "function") return Promise.resolve(true);
+  if (dialog.open) return Promise.resolve(false);
+  const messageNode = $("confirm-message");
+  const cancelButton = $("confirm-cancel");
+  const acceptButton = $("confirm-accept");
+  messageNode.textContent = message;
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      cancelButton.removeEventListener("click", onCancel);
+      acceptButton.removeEventListener("click", onAccept);
+      dialog.removeEventListener("cancel", onCancel);
+    };
+    const finish = (confirmed) => {
+      cleanup();
+      if (dialog.open) dialog.close();
+      resolve(confirmed);
+    };
+    const onCancel = (event) => {
+      event.preventDefault();
+      finish(false);
+    };
+    const onAccept = () => finish(true);
+    cancelButton.addEventListener("click", onCancel);
+    acceptButton.addEventListener("click", onAccept);
+    dialog.addEventListener("cancel", onCancel);
+    dialog.showModal();
+  });
+}
 async function deleteTemplates() {
   if (!state.selectedTemplates.size) return setMessage("请先选择要删除的模板。", true);
-  if (!window.confirm(`确定删除选中的 ${state.selectedTemplates.size} 个模板吗？`)) return;
+  if (!(await confirmAction(`确定删除选中的 ${state.selectedTemplates.size} 个模板吗？`))) return;
   try {
     const result = await api("/templates/delete", { method: "POST", body: { ids: [...state.selectedTemplates] } });
     const deleted = Number(result?.data?.deleted ?? result?.deleted ?? 0);
@@ -352,7 +399,7 @@ async function deleteTemplates() {
 
 async function deletePlays() {
   if (!state.selectedPlays.size) return setMessage("请先选择要删除的成品。", true);
-  if (!window.confirm(`确定删除选中的 ${state.selectedPlays.size} 个成品及 HTML 文件吗？`)) return;
+  if (!(await confirmAction(`确定删除选中的 ${state.selectedPlays.size} 个成品及 HTML 文件吗？`))) return;
   try {
     const result = await api("/plays/delete", { method: "POST", body: { ids: [...state.selectedPlays] } });
     const deleted = Number(result?.data?.deleted ?? result?.deleted ?? 0);
@@ -403,7 +450,7 @@ async function continuePlay() {
     const result = await api("/plays/continue", { method: "POST", body: { source_id: sourceId, prompt } });
     $("continuation-prompt").value = "";
     await loadState();
-    setMessage(`续写《${result.data.title}》已生成；未向 QQ 会话注入。`);
+    setMessage(`续写《${(result?.data ?? result)?.title}》已生成；未向 QQ 会话注入。`);
   } catch (error) { setMessage(error.message, true); }
   finally { button.disabled = false; button.textContent = "生成下一章"; }
 }
@@ -428,7 +475,7 @@ async function saveProfile() {
 
 async function deleteProfile() {
   const personaId = state.activeProfileId;
-  if (!personaId || !window.confirm(`确定删除 Persona ${personaId} 的页面人设配置吗？`)) return;
+  if (!personaId || !(await confirmAction(`确定删除 Persona ${personaId} 的页面人设配置吗？`))) return;
   try {
     await api("/profiles/delete", { method: "POST", body: { persona_id: personaId } });
     state.activeProfileId = "";
@@ -469,15 +516,6 @@ async function exportBackup() {
   finally { button.disabled = false; }
 }
 
-function fileAsBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("load", () => resolve(String(reader.result).split(",", 2)[1] || ""));
-    reader.addEventListener("error", () => reject(reader.error || new Error("读取备份失败")));
-    reader.readAsDataURL(file);
-  });
-}
-
 async function importBackup() {
   const file = $("backup-file").files[0];
   const mode = $("import-mode").value;
@@ -487,13 +525,36 @@ async function importBackup() {
   button.disabled = true;
   button.textContent = "正在校验并导入…";
   try {
-    const response = await api("/backup/import", { method: "POST", body: {
-      content_base64: await fileAsBase64(file), mode, confirm: $("replace-confirm").value.trim(),
-    } });
+    const confirm = $("replace-confirm").value.trim();
+    let response;
+    if (window.AstrBotPluginPage?.upload) {
+      response = await window.AstrBotPluginPage.upload("backup/import", file, { mode, confirm });
+    } else {
+      const formData = new FormData();
+      formData.append("file", file, file.name || "backup.zip");
+      formData.append("mode", mode);
+      formData.append("confirm", confirm);
+      const uploadResponse = await fetch(API_ROOT + "/backup/import", {
+        method: "POST",
+        credentials: "same-origin",
+        body: formData,
+      });
+      const rawBody = await uploadResponse.text();
+      let payload = {};
+      try {
+        payload = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        throw new Error("备份导入接口返回了无效响应。");
+      }
+      if (!uploadResponse.ok || payload?.status === "error") {
+        throw new Error(payload?.message || "导入失败：HTTP " + uploadResponse.status);
+      }
+      response = payload?.data ?? payload;
+    }
     $("backup-file").value = "";
     $("replace-confirm").value = "";
     await loadState();
-    setMessage(`导入完成：${response.data.templates} 个模板，${response.data.plays} 个成品。`);
+    setMessage(`导入完成：${(response?.data ?? response)?.templates} 个模板，${(response?.data ?? response)?.plays} 个成品。`);
   } catch (error) { setMessage(error.message, true); }
   finally { button.disabled = false; button.textContent = "导入备份"; }
 }
@@ -517,6 +578,19 @@ function bindEvents() {
   $("delete-templates").addEventListener("click", () => void deleteTemplates());
   $("delete-plays").addEventListener("click", () => void deletePlays());
   $("template-select-all").addEventListener("change", () => toggleAll("template"));
+  $("template-page-size").addEventListener("change", (event) => {
+    state.templatePageSize = event.target.value === "all" ? 0 : Number(event.target.value);
+    state.templatePage = 1;
+    renderTemplates();
+  });
+  $("template-page-prev").addEventListener("click", () => {
+    state.templatePage -= 1;
+    renderTemplates();
+  });
+  $("template-page-next").addEventListener("click", () => {
+    state.templatePage += 1;
+    renderTemplates();
+  });
   $("play-select-all").addEventListener("change", () => toggleAll("play"));
   $("current-play").addEventListener("change", (event) => void selectPlay(event.target.value));
   $("continue-play").addEventListener("click", () => void continuePlay());

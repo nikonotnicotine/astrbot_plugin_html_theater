@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>小剧场控制面板</title>
-  <link rel="stylesheet" href="./style.css?v=1.3.1">
+  <link rel="stylesheet" href="./style.css?v=1.3.2-pagination-backup">
   <style id="custom-panel-css"></style>
 </head>
 <body>
@@ -28,7 +28,7 @@
     <section class="workspace">
       <header class="topbar">
         <div>
-          <span class="eyebrow">HTML THEATER / v1.3.1</span>
+          <span class="eyebrow">HTML THEATER / v1.3.2</span>
           <h1 id="page-title">小剧场模板目录</h1>
         </div>
         <div class="top-actions">
@@ -51,9 +51,14 @@
           </div>
           <div class="table-well">
             <table>
-              <thead><tr><th><input id="template-select-all" type="checkbox" aria-label="全选模板"></th><th>标题</th><th>提示词</th><th>操作</th></tr></thead>
+              <thead><tr><th>编号</th><th><input id="template-select-all" type="checkbox" aria-label="全选模板"></th><th>标题</th><th>提示词</th><th>操作</th></tr></thead>
               <tbody id="template-body"></tbody>
             </table>
+          </div>
+          <div class="template-pagination" aria-label="模板分页">
+            <label class="page-size-label"><span>每页显示</span><select id="template-page-size"><option value="10">10 条</option><option value="20">20 条</option><option value="50">50 条</option><option value="all">全部</option></select></label>
+            <span id="template-page-status" class="page-status">第 1 / 1 页，共 0 个</span>
+            <div class="page-actions"><button id="template-page-prev" class="button" type="button">上一页</button><button id="template-page-next" class="button" type="button">下一页</button></div>
           </div>
         </div>
         <div class="panel-card editor-card">
@@ -152,10 +157,18 @@
     </section>
   </main>
 
+  <dialog id="confirm-dialog">
+    <div class="dialog-head"><h2>确认操作</h2></div>
+    <p id="confirm-message"></p>
+    <div class="action-row confirm-actions">
+      <button id="confirm-cancel" class="button" type="button">取消</button>
+      <button id="confirm-accept" class="button danger" type="button">确认</button>
+    </div>
+  </dialog>
   <dialog id="preview-dialog">
     <div class="dialog-head"><h2 id="preview-title">小剧场预览</h2><button id="close-preview" class="button" type="button">关闭</button></div>
     <iframe id="preview-frame" title="小剧场安全预览" sandbox="allow-scripts"></iframe>
   </dialog>
-  <script src="./app.js?v=1.3.1"></script>
+  <script src="./app.js?v=1.3.2-pagination-backup"></script>
 </body>
 </html>
