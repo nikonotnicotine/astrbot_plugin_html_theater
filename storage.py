@@ -325,6 +325,8 @@ class TheaterStorage:
         self.refresh()
         term = normalize_title(query).casefold()
         templates = copy.deepcopy(self.state["templates"])
+        for number, template in enumerate(templates, 1):
+            template["number"] = number
         plays = copy.deepcopy(self.state["plays"])
         if term:
             templates = [
@@ -364,16 +366,21 @@ class TheaterStorage:
             return copy.deepcopy(preferences)
 
     def get_template(self, title_or_id: str) -> dict[str, Any] | None:
-        """Find a template by exact title or ID.
+        """Find a template by one-based number, exact title, or ID.
 
         Args:
-            title_or_id: Template title or opaque identifier.
+            title_or_id: Template number, title, or opaque identifier.
 
         Returns:
             A copied template record or None.
         """
         self.refresh()
         value = normalize_title(title_or_id)
+        if value.isdecimal():
+            number = int(value)
+            if 1 <= number <= len(self.state["templates"]):
+                return copy.deepcopy(self.state["templates"][number - 1])
+            return None
         for item in self.state["templates"]:
             if item.get("id") == value or normalize_title(item.get("title")) == value:
                 return copy.deepcopy(item)

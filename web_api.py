@@ -308,20 +308,35 @@ class TheaterWebApi:
         )
 
     async def import_backup(self) -> Any:
-        """Import a Base64 ZIP using safe merge or confirmed replacement."""
+        """Import a multipart or Base64 ZIP in merge or replacement mode."""
         try:
-            body = await self._json()
-            mode = str(body.get("mode", "merge") or "merge")
-            if mode == "replace" and body.get("confirm") != "完整恢复":
+            content_type = str(request.content_type or "")
+            is_multipart = content_type.lower().startswith("multipart/form-data")
+            if is_multipart:
+                form = await request.form
+                uploaded = (await request.files).get("file")
+                mode = str(form.get("mode", "merge") or "merge")
+                confirm = str(form.get("confirm", "") or "")
+                if uploaded is None:
+                    raise ValueError("备份文件不能为空。")
+            else:
+                body = await self._json()
+                mode = str(body.get("mode", "merge") or "merge")
+                confirm = str(body.get("confirm", "") or "")
+
+            if mode == "replace" and confirm != "完整恢复":
                 return jsonify(
                     {
                         "status": "error",
                         "message": "完整恢复需要输入确认文本：完整恢复",
                     }
                 ), 400
-            payload = self.plugin.storage.decode_backup_base64(
-                str(body.get("content_base64", ""))
-            )
+            if is_multipart:
+                payload = uploaded.read()
+            else:
+                payload = self.plugin.storage.decode_backup_base64(
+                    str(body.get("content_base64", ""))
+                )
             result = self.plugin.storage.import_backup(payload, mode)
             self.plugin.storage.enforce_retention(
                 int(self.plugin._config("retention_limit", 6) or 6)
