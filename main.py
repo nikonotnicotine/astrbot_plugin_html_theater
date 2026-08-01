@@ -42,7 +42,7 @@ THEATER_COMMAND_PATTERN = re.compile(
     PLUGIN_NAME,
     "nikonotnicotine",
     "生成、保存和展示 HTML 小剧场，并提供模板、续写、人设与备份面板。",
-    "1.3.1",
+    "1.3.2",
 )
 class HtmlTheaterPlugin(Star):
     """Generate HTML theaters with a separate API and react in the active persona."""
